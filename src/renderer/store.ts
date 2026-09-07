@@ -394,6 +394,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addSession: (info: SessionInfo) => {
     const { nodes, nodeCounter } = get();
+    const now = Date.now();
+    const normalizedInfo: SessionInfo = {
+      ...info,
+      startedAt: info.startedAt || now,
+      lastActivityAt: info.lastActivityAt || info.startedAt || now,
+      usage: info.usage ?? null,
+      telemetrySupported: info.telemetrySupported === true,
+    };
     const col = nodeCounter % GRID_COLS;
     const row = Math.floor(nodeCounter / GRID_COLS);
 
@@ -416,7 +424,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({
       nodes: [...nodes, newNode],
-      sessions: { ...get().sessions, [info.id]: info },
+      sessions: { ...get().sessions, [info.id]: normalizedInfo },
       sessionBuffers: {
         ...get().sessionBuffers,
         [info.id]: get().sessionBuffers[info.id] ?? '',
@@ -583,11 +591,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (buf.length > 2 * 1024 * 1024) {
         buf = buf.slice(-2 * 1024 * 1024);
       }
+      const session = state.sessions[id];
+      const now = Date.now();
+      const shouldRefreshActivity = Boolean(
+        session &&
+        data.trim() &&
+        now - session.lastActivityAt >= 30_000,
+      );
       return {
         sessionBuffers: {
           ...state.sessionBuffers,
           [id]: buf,
         },
+        sessions: shouldRefreshActivity
+          ? {
+              ...state.sessions,
+              [id]: { ...session, lastActivityAt: now },
+            }
+          : state.sessions,
       };
     });
   },
