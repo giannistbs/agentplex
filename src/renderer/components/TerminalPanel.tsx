@@ -245,15 +245,11 @@ function TerminalPane({ sessionId }: { sessionId: string }) {
       )}
 
       {/* Session root terminal shell */}
-      <div
-        className="flex-1 overflow-hidden"
-        style={{ display: terminalTab === 'terminal' ? undefined : 'none' }}
-      >
-        <SessionTerminalView
-          sessionId={sessionId}
-          isVisible={terminalTab === 'terminal'}
-        />
-      </div>
+      {terminalTab === 'terminal' && (
+        <div className="flex-1 overflow-hidden">
+          <SessionTerminalView sessionId={sessionId} isVisible={true} />
+        </div>
+      )}
     </div>
   );
 }

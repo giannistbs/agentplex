@@ -599,6 +599,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const updates: Partial<AppState> = { openPanes: newPanes, activePaneId: newActive, selectedSessionId: newActive };
     if (newPanes.length === 0) updates.terminalFullscreen = false;
     set(updates);
+    window.agentPlex.killSessionTerminal(sessionId).catch(() => {});
   },
 
   appendBuffer: (id: string, data: string) => {
