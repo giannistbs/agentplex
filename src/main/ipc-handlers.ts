@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { IPC, CLI_TOOLS, RESUME_TOOL, COPILOT_RESUME_TOOL, type CliTool, type PinnedProject, type DrawingData, type WorkspaceTemplate, type PersistedGroups } from '../shared/ipc-channels';
 import { ensureGlobalConfig, ensureProjectConfig } from './config-loader';
 import { sessionManager } from './session-manager';
+import { sessionTerminalManager } from './session-terminal-manager';
 import { detectShells, getCachedShells } from './shell-detector';
 import { getDefaultShellId, setDefaultShellId } from './settings-manager';
 import {
@@ -66,6 +67,7 @@ export function registerIpcHandlers() {
   ipcMain.handle(IPC.SESSION_KILL, (_event, { id }: { id: string }) => {
     if (typeof id !== 'string') return;
     sessionManager.kill(id);
+    sessionTerminalManager.kill(id);
   });
 
   ipcMain.handle(IPC.SESSION_LIST, () => {
@@ -565,5 +567,38 @@ ${safeContext}
     const cwd = sessionManager.getSessionCwd(sessionId);
     if (!cwd) throw new Error('Session not found');
     return deleteFileOrFolder(cwd, filePath);
+  });
+
+  // ── Session Terminal operations ─────────────────────────────
+
+  ipcMain.handle(IPC.SESSION_TERMINAL_OPEN, async (_event, { sessionId, cols, rows }: { sessionId: string; cols?: number; rows?: number }) => {
+    if (typeof sessionId !== 'string') throw new Error('Invalid sessionId');
+    const cwd = sessionManager.getSessionCwd(sessionId);
+    if (!cwd) throw new Error('Session not found');
+    const safeCols = cols && Number(cols) > 0 ? Math.max(1, Math.min(500, Math.floor(Number(cols)))) : 120;
+    const safeRows = rows && Number(rows) > 0 ? Math.max(1, Math.min(200, Math.floor(Number(rows)))) : 30;
+    return sessionTerminalManager.openTerminal(sessionId, cwd, safeCols, safeRows);
+  });
+
+  ipcMain.on(IPC.SESSION_TERMINAL_WRITE, (_event, { sessionId, data }: { sessionId: string; data: string }) => {
+    if (typeof sessionId !== 'string' || typeof data !== 'string') return;
+    sessionTerminalManager.write(sessionId, data);
+  });
+
+  ipcMain.on(IPC.SESSION_TERMINAL_RESIZE, (_event, { sessionId, cols, rows }: { sessionId: string; cols: number; rows: number }) => {
+    if (typeof sessionId !== 'string') return;
+    const safeCols = Math.max(1, Math.min(500, Math.floor(Number(cols) || 80)));
+    const safeRows = Math.max(1, Math.min(200, Math.floor(Number(rows) || 24)));
+    sessionTerminalManager.resize(sessionId, safeCols, safeRows);
+  });
+
+  ipcMain.handle(IPC.SESSION_TERMINAL_GET_BUFFER, (_event, { sessionId }: { sessionId: string }) => {
+    if (typeof sessionId !== 'string') return '';
+    return sessionTerminalManager.getBuffer(sessionId);
+  });
+
+  ipcMain.handle(IPC.SESSION_TERMINAL_KILL, (_event, { sessionId }: { sessionId: string }) => {
+    if (typeof sessionId !== 'string') return;
+    sessionTerminalManager.kill(sessionId);
   });
 }

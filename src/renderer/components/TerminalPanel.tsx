@@ -7,6 +7,7 @@ import type { CliTool } from '../../shared/ipc-channels';
 import { SessionStatus } from '../../shared/ipc-channels';
 import { StatusIndicator } from './StatusIndicator';
 import { ContextMeter, SessionAge } from './SessionMetrics';
+import { SessionTerminalView } from './SessionTerminalView';
 import claudeLogo from '../../../assets/claude-logo.svg';
 import codexDark from '../../../assets/codex-dark.svg';
 import codexLight from '../../../assets/codex-light.svg';
@@ -52,7 +53,7 @@ function TerminalPane({ sessionId }: { sessionId: string }) {
   const closePane = useAppStore((s) => s.closePane);
   const terminalFullscreen = useAppStore((s) => s.terminalFullscreen);
   const toggleTerminalFullscreen = useAppStore((s) => s.toggleTerminalFullscreen);
-  const [terminalTab, setTerminalTabState] = useState<'session' | 'files' | 'git'>(() => {
+  const [terminalTab, setTerminalTabState] = useState<'session' | 'files' | 'git' | 'terminal'>(() => {
     try {
       return (sessionStorage.getItem(`agentplex:tab:${sessionId}`) as any) || 'session';
     } catch {
@@ -60,7 +61,7 @@ function TerminalPane({ sessionId }: { sessionId: string }) {
     }
   });
 
-  const setTerminalTab = useCallback((tab: 'session' | 'files' | 'git') => {
+  const setTerminalTab = useCallback((tab: 'session' | 'files' | 'git' | 'terminal') => {
     setTerminalTabState(tab);
     try {
       sessionStorage.setItem(`agentplex:tab:${sessionId}`, tab);
@@ -148,6 +149,17 @@ function TerminalPane({ sessionId }: { sessionId: string }) {
             <GitBranch size={12} />
             Git
           </button>
+          <button
+            className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-t border-b-2 transition-colors ${
+              terminalTab === 'terminal'
+                ? 'text-fg border-accent'
+                : 'text-fg-muted border-transparent hover:text-fg'
+            }`}
+            onClick={() => setTerminalTab('terminal')}
+          >
+            <Terminal size={12} />
+            Terminal
+          </button>
         </div>
         <div className="flex items-center gap-1 pr-1">
           <button
@@ -195,7 +207,7 @@ function TerminalPane({ sessionId }: { sessionId: string }) {
         </div>
       )}
 
-      {/* Terminal body */}
+      {/* Agent Terminal body */}
       <div
         className="terminal-body flex-1 p-1 overflow-hidden"
         ref={containerRef}
@@ -231,6 +243,17 @@ function TerminalPane({ sessionId }: { sessionId: string }) {
           </Suspense>
         </div>
       )}
+
+      {/* Session root terminal shell */}
+      <div
+        className="flex-1 overflow-hidden"
+        style={{ display: terminalTab === 'terminal' ? undefined : 'none' }}
+      >
+        <SessionTerminalView
+          sessionId={sessionId}
+          isVisible={terminalTab === 'terminal'}
+        />
+      </div>
     </div>
   );
 }

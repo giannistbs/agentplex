@@ -68,6 +68,13 @@ export interface AgentPlexAPI {
   saveFile: (sessionId: string, filePath: string, content: string) => Promise<void>;
   createFile: (sessionId: string, filePath: string, isDirectory: boolean) => Promise<void>;
   deleteFile: (sessionId: string, filePath: string) => Promise<void>;
+  openSessionTerminal: (sessionId: string, cols?: number, rows?: number) => Promise<{ pid: number }>;
+  writeSessionTerminal: (sessionId: string, data: string) => void;
+  resizeSessionTerminal: (sessionId: string, cols: number, rows: number) => void;
+  getSessionTerminalBuffer: (sessionId: string) => Promise<string>;
+  killSessionTerminal: (sessionId: string) => Promise<void>;
+  onSessionTerminalData: (callback: (data: { sessionId: string; data: string }) => void) => () => void;
+  onSessionTerminalExit: (callback: (data: { sessionId: string; exitCode: number }) => void) => () => void;
 }
 
 declare global {

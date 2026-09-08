@@ -320,6 +320,42 @@ const api = {
   deleteFile: (sessionId: string, filePath: string): Promise<void> => {
     return ipcRenderer.invoke(IPC.FILES_DELETE, { sessionId, filePath });
   },
+
+  openSessionTerminal: (sessionId: string, cols?: number, rows?: number): Promise<{ pid: number }> => {
+    return ipcRenderer.invoke(IPC.SESSION_TERMINAL_OPEN, { sessionId, cols, rows });
+  },
+
+  writeSessionTerminal: (sessionId: string, data: string): void => {
+    ipcRenderer.send(IPC.SESSION_TERMINAL_WRITE, { sessionId, data });
+  },
+
+  resizeSessionTerminal: (sessionId: string, cols: number, rows: number): void => {
+    ipcRenderer.send(IPC.SESSION_TERMINAL_RESIZE, { sessionId, cols, rows });
+  },
+
+  getSessionTerminalBuffer: (sessionId: string): Promise<string> => {
+    return ipcRenderer.invoke(IPC.SESSION_TERMINAL_GET_BUFFER, { sessionId });
+  },
+
+  killSessionTerminal: (sessionId: string): Promise<void> => {
+    return ipcRenderer.invoke(IPC.SESSION_TERMINAL_KILL, { sessionId });
+  },
+
+  onSessionTerminalData: (callback: (data: { sessionId: string; data: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: { sessionId: string; data: string }) => {
+      callback(payload);
+    };
+    ipcRenderer.on(IPC.SESSION_TERMINAL_DATA, handler);
+    return () => ipcRenderer.removeListener(IPC.SESSION_TERMINAL_DATA, handler);
+  },
+
+  onSessionTerminalExit: (callback: (data: { sessionId: string; exitCode: number }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: { sessionId: string; exitCode: number }) => {
+      callback(payload);
+    };
+    ipcRenderer.on(IPC.SESSION_TERMINAL_EXIT, handler);
+    return () => ipcRenderer.removeListener(IPC.SESSION_TERMINAL_EXIT, handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('agentPlex', api);

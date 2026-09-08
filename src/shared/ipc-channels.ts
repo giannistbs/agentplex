@@ -332,4 +332,11 @@ export const IPC = {
   FILES_SAVE: 'files:save',
   FILES_CREATE: 'files:create',
   FILES_DELETE: 'files:delete',
+  SESSION_TERMINAL_OPEN: 'sessionTerminal:open',
+  SESSION_TERMINAL_WRITE: 'sessionTerminal:write',
+  SESSION_TERMINAL_RESIZE: 'sessionTerminal:resize',
+  SESSION_TERMINAL_GET_BUFFER: 'sessionTerminal:getBuffer',
+  SESSION_TERMINAL_KILL: 'sessionTerminal:kill',
+  SESSION_TERMINAL_DATA: 'sessionTerminal:data',
+  SESSION_TERMINAL_EXIT: 'sessionTerminal:exit',
 } as const;
