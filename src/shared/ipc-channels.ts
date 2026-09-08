@@ -179,6 +179,24 @@ export interface GitCommandResult {
   output: string;
 }
 
+export interface FileItem {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size?: number;
+  extension?: string;
+}
+
+export interface FileContentResult {
+  isBinary: boolean;
+  isImage?: boolean;
+  content?: string;
+  dataUrl?: string;
+  language?: string;
+  size: number;
+  path: string;
+}
+
 // ── Drawing canvas types ─────────────────────────────────────────────────────
 
 export interface DrawingElement {
@@ -309,4 +327,9 @@ export const IPC = {
   TEMPLATES_LOAD: 'templates:load',
   TEMPLATES_SAVE: 'templates:save',
   SESSION_GET_PERSISTED: 'session:getPersisted',
+  FILES_LIST: 'files:list',
+  FILES_READ: 'files:read',
+  FILES_SAVE: 'files:save',
+  FILES_CREATE: 'files:create',
+  FILES_DELETE: 'files:delete',
 } as const;

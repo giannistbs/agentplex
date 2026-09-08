@@ -1,4 +1,4 @@
-import type { CliTool, DetectedShell, SessionInfo, SessionUsage, SessionStatus, SubagentInfo, PlanInfo, TaskInfo, TaskUpdateInfo, TaskListInfo, ExternalSession, DiscoveredProject, DiscoveredSession, PinnedProject, GitStatusResult, GitFileDiffResult, GitLogEntry, GitBranchInfo, GitCommandResult, DrawingData, WorkspaceTemplate, SessionSearchResult, PersistedGroups } from '../shared/ipc-channels';
+import type { CliTool, DetectedShell, SessionInfo, SessionUsage, SessionStatus, SubagentInfo, PlanInfo, TaskInfo, TaskUpdateInfo, TaskListInfo, ExternalSession, DiscoveredProject, DiscoveredSession, PinnedProject, GitStatusResult, GitFileDiffResult, GitLogEntry, GitBranchInfo, GitCommandResult, DrawingData, WorkspaceTemplate, SessionSearchResult, PersistedGroups, FileItem, FileContentResult } from '../shared/ipc-channels';
 
 export interface AgentPlexAPI {
   platform: string;
@@ -63,6 +63,11 @@ export interface AgentPlexAPI {
   getPersistedState: () => Promise<{ sessions: Record<string, { displayName: string; cwd: string; cli: string; resumeSessionId: string | null }> }>;
   templatesLoad: () => Promise<WorkspaceTemplate[]>;
   templatesSave: (templates: WorkspaceTemplate[]) => Promise<void>;
+  listFiles: (sessionId: string, subPath?: string) => Promise<FileItem[]>;
+  readFile: (sessionId: string, filePath: string) => Promise<FileContentResult>;
+  saveFile: (sessionId: string, filePath: string, content: string) => Promise<void>;
+  createFile: (sessionId: string, filePath: string, isDirectory: boolean) => Promise<void>;
+  deleteFile: (sessionId: string, filePath: string) => Promise<void>;
 }
 
 declare global {

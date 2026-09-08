@@ -20,6 +20,7 @@ import {
 } from './copilot-session-scanner';
 import { searchSessions } from './session-search';
 import { getGitStatus, getFileDiff, saveFile, stageFile, unstageFile, stageAll, unstageAll, gitCommit, gitPush, gitPull, gitLog, gitBranchInfo } from './git-operations';
+import { listFiles, readFileContent, saveFileContent, createFileOrFolder, deleteFileOrFolder } from './file-operations';
 
 const VALID_CLI_IDS = new Set<string>([
   ...CLI_TOOLS.map((t) => t.id),
@@ -519,5 +520,50 @@ ${safeContext}
   ipcMain.handle(IPC.TEMPLATES_SAVE, async (_event, templates: WorkspaceTemplate[]): Promise<void> => {
     fs.mkdirSync(canvasDir, { recursive: true });
     fs.writeFileSync(templatesPath, JSON.stringify(templates, null, 2), 'utf-8');
+  });
+
+  // ── File operations ─────────────────────────────────────────
+
+  ipcMain.handle(IPC.FILES_LIST, async (_event, { sessionId, subPath }: { sessionId: string; subPath?: string }) => {
+    if (typeof sessionId !== 'string') return [];
+    const cwd = sessionManager.getSessionCwd(sessionId);
+    if (!cwd) return [];
+    return listFiles(cwd, subPath || '');
+  });
+
+  ipcMain.handle(IPC.FILES_READ, async (_event, { sessionId, filePath }: { sessionId: string; filePath: string }) => {
+    if (typeof sessionId !== 'string' || typeof filePath !== 'string') {
+      throw new Error('Invalid parameters');
+    }
+    const cwd = sessionManager.getSessionCwd(sessionId);
+    if (!cwd) throw new Error('Session not found');
+    return readFileContent(cwd, filePath);
+  });
+
+  ipcMain.handle(IPC.FILES_SAVE, async (_event, { sessionId, filePath, content }: { sessionId: string; filePath: string; content: string }) => {
+    if (typeof sessionId !== 'string' || typeof filePath !== 'string' || typeof content !== 'string') {
+      throw new Error('Invalid parameters');
+    }
+    const cwd = sessionManager.getSessionCwd(sessionId);
+    if (!cwd) throw new Error('Session not found');
+    return saveFileContent(cwd, filePath, content);
+  });
+
+  ipcMain.handle(IPC.FILES_CREATE, async (_event, { sessionId, filePath, isDirectory }: { sessionId: string; filePath: string; isDirectory: boolean }) => {
+    if (typeof sessionId !== 'string' || typeof filePath !== 'string') {
+      throw new Error('Invalid parameters');
+    }
+    const cwd = sessionManager.getSessionCwd(sessionId);
+    if (!cwd) throw new Error('Session not found');
+    return createFileOrFolder(cwd, filePath, !!isDirectory);
+  });
+
+  ipcMain.handle(IPC.FILES_DELETE, async (_event, { sessionId, filePath }: { sessionId: string; filePath: string }) => {
+    if (typeof sessionId !== 'string' || typeof filePath !== 'string') {
+      throw new Error('Invalid parameters');
+    }
+    const cwd = sessionManager.getSessionCwd(sessionId);
+    if (!cwd) throw new Error('Session not found');
+    return deleteFileOrFolder(cwd, filePath);
   });
 }

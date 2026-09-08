@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, clipboard } from 'electron';
 import { IPC, SessionStatus } from '../shared/ipc-channels';
-import type { CliTool, DetectedShell, SessionInfo, SessionUsage, SubagentInfo, PlanInfo, TaskInfo, TaskUpdateInfo, TaskListInfo, ExternalSession, DiscoveredProject, DiscoveredSession, PinnedProject, GitStatusResult, GitFileDiffResult, GitLogEntry, GitBranchInfo, GitCommandResult, DrawingData, WorkspaceTemplate, SessionSearchResult, PersistedGroups } from '../shared/ipc-channels';
+import type { CliTool, DetectedShell, SessionInfo, SessionUsage, SubagentInfo, PlanInfo, TaskInfo, TaskUpdateInfo, TaskListInfo, ExternalSession, DiscoveredProject, DiscoveredSession, PinnedProject, GitStatusResult, GitFileDiffResult, GitLogEntry, GitBranchInfo, GitCommandResult, DrawingData, WorkspaceTemplate, SessionSearchResult, PersistedGroups, FileItem, FileContentResult } from '../shared/ipc-channels';
 
 const api = {
   platform: process.platform,
@@ -299,6 +299,26 @@ const api = {
 
   templatesSave: (templates: WorkspaceTemplate[]): Promise<void> => {
     return ipcRenderer.invoke(IPC.TEMPLATES_SAVE, templates);
+  },
+
+  listFiles: (sessionId: string, subPath?: string): Promise<FileItem[]> => {
+    return ipcRenderer.invoke(IPC.FILES_LIST, { sessionId, subPath });
+  },
+
+  readFile: (sessionId: string, filePath: string): Promise<FileContentResult> => {
+    return ipcRenderer.invoke(IPC.FILES_READ, { sessionId, filePath });
+  },
+
+  saveFile: (sessionId: string, filePath: string, content: string): Promise<void> => {
+    return ipcRenderer.invoke(IPC.FILES_SAVE, { sessionId, filePath, content });
+  },
+
+  createFile: (sessionId: string, filePath: string, isDirectory: boolean): Promise<void> => {
+    return ipcRenderer.invoke(IPC.FILES_CREATE, { sessionId, filePath, isDirectory });
+  },
+
+  deleteFile: (sessionId: string, filePath: string): Promise<void> => {
+    return ipcRenderer.invoke(IPC.FILES_DELETE, { sessionId, filePath });
   },
 };
 
