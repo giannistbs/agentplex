@@ -72,7 +72,7 @@ export function App() {
   const prevStatuses = useRef<Map<string, SessionStatus>>(new Map());
   const groupsReadyRef = useRef(false);
 
-  const renameSession = useAppStore((s) => s.renameSession);
+  const applySessionName = useAppStore((s) => s.applySessionName);
 
   const [terminalWidth, setTerminalWidth] = useState(40); // percentage
   const dragging = useRef(false);
@@ -153,7 +153,7 @@ export function App() {
           updateStatus(info.id, info.status);
           // Apply persisted display name to node label
           if (savedNames[info.id]) {
-            renameSession(info.id, savedNames[info.id]);
+            applySessionName(info.id, savedNames[info.id]);
           }
           try {
             const buffer = await window.agentPlex.getSessionBuffer(info.id);
@@ -173,7 +173,7 @@ export function App() {
           for (const { info, displayName } of restored) {
             addSession(info);
             if (displayName) {
-              renameSession(info.id, displayName);
+              applySessionName(info.id, displayName);
             }
           }
           // Provider watchers initialize usage from existing logs immediately.

@@ -31,6 +31,8 @@ export enum SessionStatus {
 }
 
 export interface SessionInfo {
+  /** Host PTY compatibility for terminal resize and scrollback behavior. */
+  windowsPty?: { backend: 'conpty' | 'winpty'; buildNumber: number };
   id: string;
   title: string;
   status: SessionStatus;
@@ -50,6 +52,7 @@ export interface SessionInfo {
 }
 
 export interface SessionUsage {
+  snapshotSource?: 'copilot-checkpoint' | 'copilot-shutdown' | 'copilot-compaction';
   /** Tokens in the latest request context. */
   contextTokens: number;
   /** Provider/model context-window limit, when known. */
