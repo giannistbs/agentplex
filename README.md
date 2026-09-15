@@ -125,6 +125,17 @@ attention** means an unresolved permission or `ask_user` request, and **Idle**
 means the turn has ended or been cancelled. Terminal prompt text, redraws, and
 quiet periods during long-running work do not change Copilot's lifecycle status.
 
+Copilot token readings are labeled **snapshot**: they come from the main
+conversation's prompt-cache checkpoint, successful compaction, or CLI shutdown.
+Hover for the exact count, source, and timestamp. Auxiliary model calls are
+excluded. These snapshots can lag `/context`; no pressure percentage is shown
+without a reliable context-window capacity.
+
+Terminal fullscreen and split-pane resizing preserve the mounted terminal.
+Desktop resizes wait for settled layout and queued output before synchronizing
+the PTY and repainting. Windows sessions use the correct PTY compatibility
+settings to preserve scrollback when the terminal grows.
+
 ## Project Structure
 
 ```

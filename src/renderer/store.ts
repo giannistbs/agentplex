@@ -125,6 +125,7 @@ export interface AppState {
   renameGroup: (groupId: string, name: string) => void;
   restoreGroups: (persisted: PersistedGroups) => void;
   renameSession: (sessionId: string, name: string) => void;
+  applySessionName: (sessionId: string, name: string) => void;
 
   // Message flash
   flashMessageEdge: (sourceId: string, targetId: string) => void;
@@ -406,6 +407,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setDrawColor: (color: string) => set({ drawColor: color }),
 
   addSession: (info: SessionInfo) => {
+    if (get().sessions[info.id]) {
+      get().updateSessionInfo(info.id, info);
+      get().updateStatus(info.id, info.status);
+      return;
+    }
     const { nodes, nodeCounter } = get();
     const now = Date.now();
     const normalizedInfo: SessionInfo = {
@@ -438,6 +444,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       nodes: [...nodes, newNode],
       sessions: { ...get().sessions, [info.id]: normalizedInfo },
+      // Restore can deliver a rendered Copilot transcript before the async
+      // restore result adds its node. Preserve that already-received history.
       sessionBuffers: {
         ...get().sessionBuffers,
         [info.id]: get().sessionBuffers[info.id] ?? '',
@@ -1051,15 +1059,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  renameSession: (sessionId: string, name: string) => {
-    set((state) => ({
+  applySessionName: (sessionId: string, name: string) => {
+    set((state) => {
+      if (!state.sessions[sessionId] || state.displayNames[sessionId] === name) return state;
+      return {
       nodes: state.nodes.map((n) =>
         n.id === sessionId && n.type === 'sessionNode'
           ? { ...n, data: { ...n.data, label: name } }
           : n
       ),
       displayNames: { ...state.displayNames, [sessionId]: name },
-    }));
+      };
+    });
+  },
+
+  renameSession: (sessionId: string, name: string) => {
+    if (!get().sessions[sessionId] || get().displayNames[sessionId] === name) return;
+    get().applySessionName(sessionId, name);
     window.agentPlex.updateSessionState(sessionId, name);
   },
 

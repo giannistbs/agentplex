@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { execSync } from 'child_process';
 import { BrowserWindow } from 'electron';
-import { homedir } from 'os';
+import { homedir, release } from 'os';
 import { SessionStatus, IPC, CLI_TOOLS, RESUME_TOOL, COPILOT_RESUME_TOOL } from '../shared/ipc-channels';
 import type { SessionInfo, SessionUsage, CliTool, ExternalSession } from '../shared/ipc-channels';
 import { getShellById } from './shell-detector';
@@ -17,6 +17,14 @@ import { PlanTaskDetector } from './plan-task-detector';
 import { resolveClaudeConfig } from './config-loader';
 
 const STATE_PATH = path.join(homedir(), '.agentplex', 'state.json');
+
+function getWindowsPty(): SessionInfo['windowsPty'] {
+  if (process.platform !== 'win32') return undefined;
+  const buildNumber = Number.parseInt(release().split('.')[2], 10);
+  if (!Number.isFinite(buildNumber)) throw new Error('Cannot determine Windows PTY build number');
+  // Match node-pty's default backend selection.
+  return { backend: buildNumber >= 18309 ? 'conpty' : 'winpty', buildNumber };
+}
 
 /**
  * Default delay between PTY spawn and the auto-launched CLI command.
@@ -265,7 +273,7 @@ export class SessionManager {
   /** Update display name in memory and persist */
   updateDisplayName(sessionId: string, displayName: string) {
     const session = this.sessions.get(sessionId);
-    if (session) {
+    if (session && session.displayName !== displayName) {
       session.displayName = displayName;
       this.saveState();
     }
@@ -312,6 +320,8 @@ export class SessionManager {
           false,
           launchDelayMs,
         );
+        const session = this.sessions.get(info.id);
+        if (session) session.displayName = persisted.displayName;
         results.push({ info, displayName: persisted.displayName });
         console.log(`[restore] Restored "${persisted.displayName}" (${persisted.cli}: ${persisted.resumeSessionId}) — launch in ${launchDelayMs}ms`);
       } catch (err: any) {
@@ -532,6 +542,7 @@ export class SessionManager {
       lastActivityAt: session.lastActivityAt,
       usage: session.usage,
       telemetrySupported: true,
+      windowsPty: getWindowsPty(),
       resumeSessionId: session.resumeSessionId,
     };
   }
@@ -744,6 +755,7 @@ export class SessionManager {
       lastActivityAt: session.lastActivityAt,
       usage: session.usage,
       telemetrySupported: true,
+      windowsPty: getWindowsPty(),
       resumeSessionId: session.resumeSessionId,
     };
   }
@@ -806,6 +818,7 @@ export class SessionManager {
       lastActivityAt: s.lastActivityAt,
       usage: s.usage,
       telemetrySupported: true,
+      windowsPty: getWindowsPty(),
       resumeSessionId: s.resumeSessionId,
     }));
   }

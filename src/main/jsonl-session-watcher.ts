@@ -34,6 +34,7 @@ export interface TaskListEvent {
 }
 
 export interface SessionTelemetryEvent {
+  snapshotSource?: 'copilot-checkpoint' | 'copilot-shutdown' | 'copilot-compaction';
   contextTokens: number;
   contextWindowTokens: number | null;
   inputTokens: number;
@@ -307,13 +308,14 @@ export class JsonlSessionWatcher extends EventEmitter {
     const previous = this.telemetry;
     const merged: SessionTelemetryEvent = {
       contextTokens: next.contextTokens ?? previous?.contextTokens ?? 0,
-      contextWindowTokens: next.contextWindowTokens ?? previous?.contextWindowTokens ?? null,
+      contextWindowTokens: next.contextWindowTokens !== undefined ? next.contextWindowTokens : previous?.contextWindowTokens ?? null,
       inputTokens: next.inputTokens ?? previous?.inputTokens ?? 0,
       outputTokens: next.outputTokens ?? previous?.outputTokens ?? 0,
       cacheReadTokens: next.cacheReadTokens ?? previous?.cacheReadTokens ?? 0,
       cacheWriteTokens: next.cacheWriteTokens ?? previous?.cacheWriteTokens ?? 0,
-      model: next.model ?? previous?.model ?? null,
+      model: next.model !== undefined ? next.model : previous?.model ?? null,
       updatedAt: next.updatedAt ?? Date.now(),
+      snapshotSource: next.snapshotSource,
     };
     this.telemetry = merged;
     this.emit('telemetry', merged);
@@ -342,44 +344,56 @@ export class JsonlSessionWatcher extends EventEmitter {
     const data = record.data;
     if (!data || typeof data !== 'object') return;
 
-    if ((record.type === 'model.turn_started' || record.type === 'model.model_call_started') && data.modelInfo) {
-      const limit = Number(data.modelInfo?.capabilities?.limits?.max_context_window_tokens);
+    // model.* includes title generation, routing and other auxiliary requests.
+    // Even a matching model ID does not prove that a call is the main context.
+    const validTokens = (value: unknown): value is number =>
+      typeof value === 'number' && Number.isFinite(value) && value >= 0;
+    const timestamp = Date.parse(record.timestamp);
+    if (!Number.isFinite(timestamp)) return;
+
+    if (record.type === 'session.usage_checkpoint') {
+      const main = Array.isArray(data.promptCacheBreakState)
+        ? data.promptCacheBreakState.find((entry: any) => entry?.conversation === 'main')
+        : undefined;
+      const model = main?.lastActiveModel;
+      const snapshot = typeof model === 'string' ? main?.models?.[model] : undefined;
+      const completedAt = Date.parse(snapshot?.completed_at);
+      if (!snapshot || !validTokens(snapshot.prompt_tokens) || !Number.isFinite(completedAt)) return;
+      // Checkpoints can retain old model cache entries after compaction.
+      if (this.telemetry && completedAt <= this.telemetry.updatedAt) return;
+      const cached = validTokens(snapshot.cache_read) ? snapshot.cache_read : 0;
+      const written = validTokens(snapshot.cache_write) ? snapshot.cache_write : 0;
       this.emitTelemetry({
-        contextWindowTokens: Number.isFinite(limit) && limit > 0 ? limit : null,
-        model: typeof data.model === 'string' ? data.model : null,
-        updatedAt: Number(data.timestampMs) || Date.now(),
+        contextTokens: snapshot.prompt_tokens,
+        contextWindowTokens: null,
+        inputTokens: Math.max(0, snapshot.prompt_tokens - cached - written),
+        outputTokens: 0,
+        cacheReadTokens: cached,
+        cacheWriteTokens: written,
+        model,
+        updatedAt: completedAt,
+        snapshotSource: 'copilot-checkpoint',
       });
       return;
     }
 
-    if (record.type === 'model.model_call_success') {
-      const usage = data.responseUsage;
-      if (!usage || typeof usage !== 'object') return;
-      const promptTokens = Number(usage.prompt_tokens) || 0;
+    const shutdown = record.type === 'session.shutdown';
+    const compacted = record.type === 'session.compaction_complete' && data.success === true;
+    const tokens = shutdown ? data.currentTokens : data.postCompactionTokens;
+    if ((shutdown || compacted) && validTokens(tokens)) {
+      if (this.telemetry && timestamp < this.telemetry.updatedAt) return;
       this.emitTelemetry({
-        contextTokens: promptTokens,
-        inputTokens: Math.max(0, promptTokens - (Number(usage.prompt_tokens_details?.cached_tokens) || 0)),
-        outputTokens: Number(usage.completion_tokens) || 0,
-        cacheReadTokens: Number(usage.prompt_tokens_details?.cached_tokens) || 0,
+        contextTokens: tokens,
+        // Compaction's tokenLimit is a trigger threshold, not necessarily
+        // the provider's context-window capacity.
+        contextWindowTokens: null,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
         cacheWriteTokens: 0,
-        model: typeof data.modelCall?.model === 'string' ? data.modelCall.model : null,
-        updatedAt: typeof record.timestamp === 'string' ? Date.parse(record.timestamp) || Date.now() : Date.now(),
-      });
-      return;
-    }
-
-    if (record.type === 'session.shutdown') {
-      const details = data.tokenDetails;
-      const currentTokens = Number(data.currentTokens);
-      if (!details || !Number.isFinite(currentTokens)) return;
-      this.emitTelemetry({
-        contextTokens: currentTokens,
-        inputTokens: Number(details.input?.tokenCount) || 0,
-        outputTokens: Number(details.output?.tokenCount) || 0,
-        cacheReadTokens: Number(details.cache_read?.tokenCount) || 0,
-        cacheWriteTokens: Number(details.cache_write?.tokenCount) || 0,
-        model: typeof data.currentModel === 'string' ? data.currentModel : null,
-        updatedAt: typeof record.timestamp === 'string' ? Date.parse(record.timestamp) || Date.now() : Date.now(),
+        model: shutdown && typeof data.currentModel === 'string' ? data.currentModel : null,
+        updatedAt: timestamp,
+        snapshotSource: shutdown ? 'copilot-shutdown' : 'copilot-compaction',
       });
     }
   }
